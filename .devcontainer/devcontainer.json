@@ -1,0 +1,42 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/debian
+{
+	"name": "Debian",
+	"build": {
+		"dockerfile": "Dockerfile",
+		// Update 'VARIANT' to pick an Debian version: bullseye, buster
+		// Use bullseye on local arm64/Apple Silicon.
+		"args": { "VARIANT": "bullseye" }
+	},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Uncomment when using a ptrace-based debugger like C++, Go, and Rust
+	// "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
+
+	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode",
+	"features": {
+		"kubectl-helm-minikube": "latest",
+		"docker-from-docker": "latest",
+		"aws-cli": "latest",
+		"terraform": "latest"
+	},
+
+	// Make the aws cli configuration persistent with a Docker volume.
+	"mounts": [
+		// Make the aws cli configuration persistent.
+		"source=aws-cli-config,target=/home/vscode/.aws,type=volume",
+		// Make the kubectl configuration persistent.
+		"source=kubectl-config,target=/home/vscode/.kube,type=volume",
+		// Forward the Docker socket from the host to the container.
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	],
+
+	// Load relevant private keys in the ssh agent so that VSCode can forward them to the container.
+	"initializeCommand": [ "ssh-add", "${localEnv:HOME}/.ssh/gitlab_unidue" ],
+
+	// Adjust the ownership of persistent volumes.
+	"postCreateCommand": [ "sudo", "chown", "vscode", "/home/vscode/.aws", "/home/vscode/.kube" ]
+}
