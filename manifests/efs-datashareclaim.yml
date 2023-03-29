@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-claim
+  namespace: coder
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-shared
+  resources:
+    requests:
+      # Storage specs are irrelevant for EFS volumes
+      storage: 10Gi

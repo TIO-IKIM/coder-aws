@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: coder-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Let's Encrypt uses this email to warn about expiring certificates and other issues.
+    email: enrico.nasca@uk-essen.de
+    privateKeySecretRef:
+      name: letsencrypt
+    solvers:
+      - selector:
+          dnsZones:
+            - code.ikim.uk-essen.de
+        dns01:
+          route53:
+            # Note: this is NOT the same as the cluster region.
+            # See the section about AWS CLI requests at
+            # https://docs.aws.amazon.com/general/latest/gr/r53.html#r53_region
+            region: us-east-1

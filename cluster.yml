@@ -1,0 +1,188 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: coder
+  region: eu-central-1
+  version: "1.23"
+
+iam:
+  withOIDC: true
+
+  serviceAccounts:
+    - metadata:
+        name: aws-load-balancer-controller
+        namespace: kube-system
+      wellKnownPolicies:
+        awsLoadBalancerController: true
+    - metadata:
+        name: cluster-autoscaler
+        namespace: kube-system
+      wellKnownPolicies:
+        autoScaler: true
+    - metadata:
+        name: efs-csi-controller-sa
+        namespace: kube-system
+      wellKnownPolicies:
+        efsCSIController: true
+    - metadata:
+        name: cert-manager
+        namespace: cert-manager
+      wellKnownPolicies:
+        certManager: true
+    - metadata:
+        name: external-dns
+        namespace: external-dns
+      wellKnownPolicies:
+        externalDNS: true
+
+addons:
+  - name: aws-ebs-csi-driver
+    version: latest
+
+availabilityZones:
+  - eu-central-1a
+  - eu-central-1b
+  - eu-central-1c
+
+# By default we create a dedicated VPC for the cluster
+# You can use an existing VPC by supplying private and/or public subnets. Please check
+# https://eksctl.io/usage/vpc-networking/#use-existing-vpc-other-custom-configuration
+vpc:
+  nat:
+    # For production environments use HighlyAvailable, for an initial deployment Single adequate
+    # HighlyAvailable will consume 3 Elastic IPs so ensure your region has capacity before using
+    # https://eksctl.io/usage/vpc-networking/#nat-gateway
+    gateway: Single
+
+  # Cluster endpoints and public access
+  # Private access ensures that nodes can communicate internally in case of NAT failure
+  # For customizing for your environment review https://eksctl.io/usage/vpc-cluster-access/
+  clusterEndpoints:
+    privateAccess: true
+    publicAccess: true
+  publicAccessCIDRs: ["0.0.0.0/0"]
+
+# Nodegroups / Compute settings
+managedNodeGroups:
+  - name: services
+    # In order to support Amazon security groups for pods, make sure that the
+    # instance type has IsTrunkingCompatible: true in
+    # https://github.com/aws/amazon-vpc-resource-controller-k8s/blob/master/pkg/aws/vpc/limits.go
+    instanceType: m6i.xlarge
+    # To retrieve the Ubuntu AMI ID based on the kubernetes version and cluster
+    # region, see https://cloud-images.ubuntu.com/aws-eks/
+    ami: ami-035afd47cd3186c16
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 2
+    volumeSize: 60
+    volumeType: gp3
+    propagateASGTags: true
+
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+    tags:
+      k8s.io/cluster-autoscaler/enabled: "true"
+      # Important - If you change the name of your EKS cluster, update this tag
+      # to match your cluster (`k8s.io/cluster-autoscaler/<cluster-name>: "owned"`)
+      k8s.io/cluster-autoscaler/coder: "owned"
+
+    overrideBootstrapCommand: |
+      #!/bin/sh
+      /etc/eks/bootstrap.sh coder --use-max-pods=false --container-runtime containerd
+
+  - name: workspaces-general
+    # In order to support Amazon security groups for pods, make sure that the
+    # instance type has IsTrunkingCompatible: true in
+    # https://github.com/aws/amazon-vpc-resource-controller-k8s/blob/master/pkg/aws/vpc/limits.go
+    instanceType: m6i.4xlarge
+    # To retrieve the Ubuntu AMI ID based on the kubernetes version and cluster
+    # region, see https://cloud-images.ubuntu.com/aws-eks/
+    ami: ami-035afd47cd3186c16
+    # Use ${public_azs} from the deployment script.
+    availabilityZones: ["<zone>"]
+    desiredCapacity: 1
+    minSize: 0
+    maxSize: 10
+    volumeSize: 100
+    volumeType: gp3
+    ebsOptimized: true
+    propagateASGTags: true
+
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+    labels:
+      workspace_node: "true"
+
+    tags:
+      k8s.io/cluster-autoscaler/enabled: "true"
+      # Important - If you change the name of your EKS cluster, update this tag
+      # to match your cluster (`k8s.io/cluster-autoscaler/<cluster-name>: "owned"`)
+      k8s.io/cluster-autoscaler/coder: "owned"
+      # Label propagation (see https://eksctl.io/usage/autoscaling/#scaling-up-from-0)
+      k8s.io/cluster-autoscaler/node-template/label/workspace_node: "true"
+
+    overrideBootstrapCommand: |
+      #!/bin/sh
+      /etc/eks/bootstrap.sh coder --use-max-pods=false --container-runtime containerd
+
+  - name: workspaces-gpu
+    # In order to support Amazon security groups for pods, make sure that the
+    # instance type has IsTrunkingCompatible: true in
+    # https://github.com/aws/amazon-vpc-resource-controller-k8s/blob/master/pkg/aws/vpc/limits.go
+    instanceType: p3.2xlarge
+    # To retrieve the correct AMI ID for GPU instances, execute
+    # aws ssm get-parameter --name /aws/service/eks/optimized-ami/<kubernetes version>/amazon-linux-2-gpu/recommended/image_id --region <region code> --query "Parameter.Value" --output text
+    ami: ami-0b1cad00caa609a98
+    # Use ${public_azs} from the deployment script.
+    availabilityZones: ["<zone>"]
+    desiredCapacity: 1
+    minSize: 0
+    maxSize: 10
+    volumeSize: 100
+    volumeType: gp3
+    ebsOptimized: true
+    propagateASGTags: true
+
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+    labels:
+      workspace_node: "true"
+      # Provide a hint to the autoscaler about the presence of a GPU.
+      # For a list of accepted values, see https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/aws_cloud_provider.go.
+      k8s.amazonaws.com/accelerator: nvidia-tesla-v100
+      # Select the nvidia device plugin configuration. This value must match
+      # one of the keys from the ConfigMap in the gpu-operator namespace.
+      nvidia.com/device-plugin.config: tworeplicas
+
+    tags:
+      k8s.io/cluster-autoscaler/enabled: "true"
+      # Important - If you change the name of your EKS cluster, update this tag
+      # to match your cluster (`k8s.io/cluster-autoscaler/<cluster-name>: "owned"`)
+      k8s.io/cluster-autoscaler/coder: "owned"
+      # Label propagation (see https://eksctl.io/usage/autoscaling/#scaling-up-from-0)
+      k8s.io/cluster-autoscaler/node-template/label/workspace_node: "true"
+      k8s.io/cluster-autoscaler/node-template/label/k8s.amazonaws.com/accelerator: nvidia-tesla-v100
+      k8s.io/cluster-autoscaler/node-template/label/nvidia.com/device-plugin.config: tworeplicas
+
+    overrideBootstrapCommand: |
+      #!/bin/sh
+      /etc/eks/bootstrap.sh coder --use-max-pods=false --container-runtime containerd

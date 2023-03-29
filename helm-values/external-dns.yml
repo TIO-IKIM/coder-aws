@@ -1,0 +1,15 @@
+provider: aws
+aws:
+  zoneType: public
+
+# Use ${hosted_zone_id} from the deployment script.
+txtOwnerId: <hosted zone id>
+domainFilters:
+  - code.ikim.uk-essen.de
+
+serviceAccount:
+  create: false
+  name: external-dns
+
+podSecurityContext:
+  fsGroup: 65534

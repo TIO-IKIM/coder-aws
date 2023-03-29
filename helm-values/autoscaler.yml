@@ -1,0 +1,19 @@
+cloudProvider: aws
+awsRegion: eu-central-1
+
+autoDiscovery:
+  clusterName: coder
+
+rbac:
+  serviceAccount:
+    create: false
+    name: cluster-autoscaler
+
+securityContext:
+  fsGroup: 65534
+
+extraArgs:
+  skip-nodes-with-local-storage: false
+  skip-nodes-with-system-pods: false
+  expander: least-waste
+  balance-similar-node-groups: true

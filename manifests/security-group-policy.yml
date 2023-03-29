@@ -1,0 +1,18 @@
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  name: coder-pods-policy
+  namespace: coder
+spec:
+  podSelector:
+    matchLabels:
+      # This label is created by the Coder Helm chart and matches the
+      # release name under which it was installed.
+      # See https://github.com/coder/coder/blob/main/helm/templates/_helpers.tpl
+      app.kubernetes.io/instance: coder
+  securityGroups:
+    groupIds:
+      # Replace with $cluster_security_group_id
+      - <cluster security group id>
+      # Replace with $coder_pod_security_group_id
+      - <pod security group id>

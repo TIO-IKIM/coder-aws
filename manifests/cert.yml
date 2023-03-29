@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: https-certificates
+  namespace: coder
+spec:
+  secretName: https-certificates
+  issuerRef:
+    kind: ClusterIssuer
+    name: coder-issuer
+  dnsNames:
+    - "code.ikim.uk-essen.de"
+    - "*.code.ikim.uk-essen.de"
